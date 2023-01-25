@@ -1,0 +1,8 @@
+#for grasshopper hops connection
+ghhops-server
+flask
+
+#for curve fitting 
+numpy
+matplotlib
+scipy

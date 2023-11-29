@@ -1,13 +1,15 @@
 import ghhops_server as hs
 from flask import Flask
 import rhino3dm as rh
+import joblib
 
-import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+import json
+import numpy as np
 
 
-
+loaded_model = joblib.load('gradient_boosting_model.joblib')
 app = Flask(__name__)
 hops: hs.HopsFlask = hs.Hops(app)
 
@@ -22,10 +24,6 @@ def objective2(x, a, b, c):
 
 def objective3(x, a, b, c, d, e, f):
     return (a * x) + (b * x**2) + (c * x**3) + (d * x**4) + (e * x**5) + f
-
-def objective4(x, a, b, c, d):
-    return a * np.sin(b - x) + c * x**2 + d
-
 
 def fit_to_objective(xdata,ydata,obj_fun = 0):
 
@@ -44,15 +42,9 @@ def fit_to_objective(xdata,ydata,obj_fun = 0):
         a, b, c, d, e, f = parameters
         x_line = np.arange(min(xdata), max(xdata), 1)
         y_line = objective3(x_line, a, b, c,d,e,f)
-    elif obj_fun==3:
-        parameters, _ = curve_fit(objective4, xdata, ydata)
-        a, b, c, d = parameters
-        x_line = np.arange(min(xdata), max(xdata), 1)
-        y_line = objective4(x_line, a, b, c, d)
-    
+    else:
+        x_line,y_line = [],[]
     return x_line,y_line
-
-
 
 @app.route("/index")
 def index():
@@ -96,14 +88,13 @@ def plotFit(save,pts,crv,file_name):
         pt = crv.PointAt(i/len(pts))
         cX.append(pt.X)
         cY.append(pt.Y)
-
     if save:
-        plt.clf()
-        plt.plot(X, Y, 'o', label='data')
-        plt.plot(cX, cY, '-', label='fit')
-        plt.legend()
+        fig,ax = plt.subplots()
+        ax.plot(X, Y, 'o', label='data')
+        ax.plot(cX, cY, '-', label='fit')
+        ax.legend()
         name = "{}.png".format(file_name)
-        plt.savefig(name)
+        fig.savefig(name)
         return True
     
     return False
@@ -115,7 +106,8 @@ def plotFit(save,pts,crv,file_name):
     inputs = [hs.HopsPoint("Points","Points","Points to plot",access=hs.HopsParamAccess.LIST),
               hs.HopsNumber("Objective","Obj","Objective Type",access=hs.HopsParamAccess.ITEM)
     ],
-    outputs=[hs.HopsCurve("fitCurve","CRV","Fitted curve",access=hs.HopsParamAccess.LIST)
+    outputs=[hs.HopsBoolean("Success","Success","True if fitted curve",access=hs.HopsParamAccess.ITEM),
+            hs.HopsCurve("fitCurve","CRV","Fitted curve",access=hs.HopsParamAccess.ITEM)
     ]
 )
 def fitCurve(pts,obj):
@@ -129,12 +121,65 @@ def fitCurve(pts,obj):
     x_line,y_line = fit_to_objective(xdata,ydata,obj_fun=obj)
 
     newPoints = []
-    for i in range(len(x_line)):
-        pt = rh.Point3d(x_line[i],y_line[i],0)
-        newPoints.append(pt)
+    if len(x_line)>0:
+        for i in range(len(x_line)):
+            pt = rh.Point3d(x_line[i],y_line[i],0)
+            newPoints.append(pt)
+        crv = rh.Curve.CreateControlPointCurve(newPoints,1)
+        print ("I'm here now")
+        return True,crv
+    print ("lol")
+    crv = rh.Curve.CreateControlPointCurve(pts,1)
+    print (crv)
+    return False,crv
+
+@hops.component(
+    "/savePoints",
+    name = "savePoints",
+    description = "This component fit a curve to a set of points",
+    inputs = [hs.HopsPoint("Points","Points","Points to plot",access=hs.HopsParamAccess.LIST)
+    ],
+    outputs=[hs.HopsBoolean("Success","Success","True if plotted False if error",access=hs.HopsParamAccess.ITEM)
+    ]
+)
+def savePoints(pts):
+    X = [pt.X for pt in pts]
+    Y = [pt.Y for pt in pts]
+    Z = [pt.Z for pt in pts]
     
-    crv = rh.Curve.CreateControlPointCurve(newPoints,1)
-    return crv
+    points_dict = {'X':X,'Y':Y,'Z':Z}
+    
+    file_path = 'points.json'
+
+
+    with open(file_path, 'w') as json_file:
+        json.dump(points_dict, json_file, indent=4)
+
+    print(f"JSON file saved at: {file_path}")
+        
+    return True
+
+@hops.component(
+    "/predictPoint",
+    name = "predictPoint",
+    description = "This component fit a curve to a set of points",
+    inputs = [hs.HopsPoint("Points","Points","Points to plot",access=hs.HopsParamAccess.ITEM)
+    ],
+    outputs=[hs.HopsPoint("Points","Points","Points to plot",access=hs.HopsParamAccess.ITEM)
+    ]
+)
+def predictPoint(pt):
+    X = pt.X 
+    Y = pt.Y
+    print (X,Y)
+    # Load the saved model
+
+    print ("lol")
+    new_data = np.array([[X,Y]])
+    prediction = loaded_model.predict(new_data)
+
+    new_pt = rh.Point3d(X,Y,prediction)
+    return new_pt
 
 
 if __name__ == "__main__":

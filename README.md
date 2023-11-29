@@ -16,7 +16,7 @@ To run the code, first follow the steps:
 the hops endpoints in this example are:
 
 /sum
-
 /plotFit
-
 /fitCurve
+/savePoints
+/predictPoint

@@ -136,7 +136,7 @@ def fitCurve(pts,obj):
 @hops.component(
     "/savePoints",
     name = "savePoints",
-    description = "This component fit a curve to a set of points",
+    description = "This component save a list of points as json file",
     inputs = [hs.HopsPoint("Points","Points","Points to plot",access=hs.HopsParamAccess.LIST)
     ],
     outputs=[hs.HopsBoolean("Success","Success","True if plotted False if error",access=hs.HopsParamAccess.ITEM)
@@ -162,25 +162,19 @@ def savePoints(pts):
 @hops.component(
     "/predictPoint",
     name = "predictPoint",
-    description = "This component fit a curve to a set of points",
-    inputs = [hs.HopsPoint("Points","Points","Points to plot",access=hs.HopsParamAccess.ITEM)
+    description = "This component predict a z value of a point on a surface",
+    inputs = [hs.HopsPoint("Point","Point","Points to test",access=hs.HopsParamAccess.ITEM)
     ],
-    outputs=[hs.HopsPoint("Points","Points","Points to plot",access=hs.HopsParamAccess.ITEM)
+    outputs=[hs.HopsPoint("Point","Point","Point with predicted Z value",access=hs.HopsParamAccess.ITEM)
     ]
 )
 def predictPoint(pt):
     X = pt.X 
     Y = pt.Y
-    print (X,Y)
-    # Load the saved model
-
-    print ("lol")
     new_data = np.array([[X,Y]])
     prediction = loaded_model.predict(new_data)
-
     new_pt = rh.Point3d(X,Y,prediction)
     return new_pt
-
 
 if __name__ == "__main__":
 

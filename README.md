@@ -21,4 +21,4 @@ the hops endpoints in this example are:
 /savePoints
 /predictPoint
 
-5 - make a new change to Lior's readme file
+7 - make a new change to Lior's readme file
